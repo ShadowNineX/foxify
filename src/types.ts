@@ -212,6 +212,12 @@ export type SearchType =
 
 export interface PlaylistDetails {
   name?: string;
+  /**
+   * Spotify's profile/search publishing flag for the playlist.
+   *
+   * `false` hides the playlist from the owner's public profile and search, but
+   * Spotify's Web API does not control link-private access.
+   */
   public?: boolean;
   collaborative?: boolean;
   description?: string;

@@ -196,6 +196,7 @@ const saved = await spotify.tracks.checkSaved(["spotify-track-id"]);
 const playlist = await spotify.playlists.create({
   name: "Weekend Flight Deck",
   description: "Fresh tracks for late-night building.",
+  // Hides from profile/search. Spotify Web API cannot make links private.
   public: false,
 });
 
