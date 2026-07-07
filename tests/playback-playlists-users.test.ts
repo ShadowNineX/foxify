@@ -114,6 +114,15 @@ describe("playlist endpoints", () => {
       body: { name: "New name", public: false },
     });
 
+    await spotify.playlists.changeDetails("playlist", {
+      public: true,
+    });
+    expectRequest(fetch, {
+      method: "PUT",
+      path: "https://api.spotify.com/v1/playlists/playlist",
+      body: { public: true },
+    });
+
     await spotify.playlists.updateItems("playlist", {
       uris: ["spotify:track:one"],
       range_start: 0,
@@ -177,18 +186,31 @@ describe("playlist endpoints", () => {
       search: { limit: "1" },
     });
 
-    await spotify.playlists.create({ name: "Mix", description: "A mix" });
+    await spotify.playlists.create({
+      name: "Mix",
+      description: "A mix",
+      public: false,
+      collaborative: false,
+    });
     expectRequest(fetch, {
       method: "POST",
       path: "https://api.spotify.com/v1/me/playlists",
-      body: { name: "Mix", description: "A mix" },
+      body: {
+        name: "Mix",
+        description: "A mix",
+        public: false,
+        collaborative: false,
+      },
     });
 
-    await spotify.playlists.createForUser("user", { name: "Mix" });
+    await spotify.playlists.createForUser("user", {
+      name: "Mix",
+      public: true,
+    });
     expectRequest(fetch, {
       method: "POST",
       path: "https://api.spotify.com/v1/users/user/playlists",
-      body: { name: "Mix" },
+      body: { name: "Mix", public: true },
     });
 
     await spotify.playlists.getFeatured({ country: "US", locale: "en_US" });
