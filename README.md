@@ -164,6 +164,15 @@ const tokens = await clientCredentialsToken({
 
 ## Examples
 
+Runnable examples live in [`examples/`](./examples). After installing dependencies,
+set the Spotify environment variables needed by the example you want, then run:
+
+```bash
+bun run example:client-credentials-search
+bun run example:oauth-login
+bun run example:user-profile-playlists
+```
+
 ### Search
 
 ```ts

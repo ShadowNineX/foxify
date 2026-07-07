@@ -40,6 +40,8 @@
   "types": "./dist/index.d.mts",
   "files": [
     "dist",
+    "examples/*.ts",
+    "examples/README.md",
     "README.md",
     "LICENSE"
   ],
@@ -48,6 +50,9 @@
   },
   "scripts": {
     "build": "tsdown",
+    "example:client-credentials-search": "bun --env-file=examples/.env run examples/client-credentials-search.ts",
+    "example:oauth-login": "bun --env-file=examples/.env run examples/oauth-login.ts",
+    "example:user-profile-playlists": "bun --env-file=examples/.env run examples/user-profile-playlists.ts",
     "prepack": "bun run build",
     "prepublishOnly": "bun run typecheck && bun run test",
     "pack:dry": "npm pack --dry-run",
