@@ -86,6 +86,8 @@ export interface ImageObject {
   [key: string]: unknown;
 }
 
+export type PlaylistCoverImage = ImageObject;
+
 export interface SpotifyObject {
   id: string;
   name?: string;
@@ -221,6 +223,14 @@ export interface PlaylistDetails {
   public?: boolean;
   collaborative?: boolean;
   description?: string;
+}
+
+export interface CustomPlaylistCoverImageOptions extends RequestOptions {
+  /**
+   * Validate Spotify's documented 256 KB raw base64 JPEG request body limit before
+   * sending the request. Enabled by default.
+   */
+  validatePayloadSize?: boolean;
 }
 
 export interface PlaylistItemsBody {

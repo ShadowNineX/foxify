@@ -205,6 +205,21 @@ await spotify.playlists.addItems(playlist.id, [
 ]);
 ```
 
+### Playlist Cover Images
+
+```ts
+const coverImages = await spotify.playlists.getCoverImage(playlist.id);
+
+await spotify.playlists.uploadCustomCoverImage(
+  playlist.id,
+  jpegImageBase64,
+);
+```
+
+Spotify expects raw base64-encoded JPEG image data, not JSON and not a data URL.
+The request body must be 256 KB or smaller. The access token needs Spotify's
+`ugc-image-upload` scope.
+
 ### Playback
 
 ```ts
