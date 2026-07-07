@@ -1,0 +1,60 @@
+{
+  "name": "@shadownine/foxify",
+  "version": "0.1.0",
+  "description": "A modern TypeScript client for the Spotify Web API.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "packageManager": "bun@1.3.14",
+  "engines": {
+    "node": ">=18.17"
+  },
+  "keywords": [
+    "spotify",
+    "spotify-web-api",
+    "web-api",
+    "oauth",
+    "oauth2",
+    "pkce",
+    "typescript",
+    "fetch",
+    "music"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "prepack": "bun run build",
+    "prepublishOnly": "bun run typecheck && bun run test",
+    "pack:dry": "npm pack --dry-run",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "tsdown": "^0.22.3",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "oauth4webapi": "^3.8.6",
+    "ofetch": "^1.5.1"
+  }
+}
