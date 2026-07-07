@@ -10,9 +10,11 @@ import type {
   Requester,
 } from "../internal";
 import type {
+  CustomPlaylistCoverImageOptions,
   Episode,
   Paging,
   Playlist,
+  PlaylistCoverImage,
   PlaylistDetails,
   PlaylistItemsBody,
   RemovePlaylistItemsBody,
@@ -23,6 +25,8 @@ import type {
 interface CreatePlaylistBody extends PlaylistDetails {
   name: string;
 }
+
+const MAX_CUSTOM_COVER_IMAGE_BYTES = 256 * 1024;
 
 export function createPlaylistsApi(request: Requester) {
   const deprecatedTracksPath = (playlistId: string) =>
@@ -165,18 +169,50 @@ export function createPlaylistsApi(request: Requester) {
         ...requestOptions(options),
       }),
     getCoverImage: (playlistId: string, options?: RequestOptions) =>
-      request<Array<{ url: string; height: number | null; width: number | null }>>({
+      request<PlaylistCoverImage[]>({
         method: "GET",
         path: `/playlists/${encodePath(playlistId)}/images`,
         ...requestOptions(options),
       }),
-    addCustomCoverImage: (playlistId: string, jpegImageBase64: string, options?: RequestOptions) =>
-      request<void>({
-        method: "PUT",
-        path: `/playlists/${encodePath(playlistId)}/images`,
-        rawBody: jpegImageBase64,
-        headers: { ...headerRecord(options?.headers), "content-type": "image/jpeg" },
-        signal: options?.signal,
-      }),
+    uploadCustomCoverImage: (
+      playlistId: string,
+      jpegImageBase64: string,
+      options?: CustomPlaylistCoverImageOptions,
+    ) => uploadCustomCoverImage(request, playlistId, jpegImageBase64, options),
+    /** @deprecated Use uploadCustomCoverImage. */
+    addCustomCoverImage: (
+      playlistId: string,
+      jpegImageBase64: string,
+      options?: CustomPlaylistCoverImageOptions,
+    ) => uploadCustomCoverImage(request, playlistId, jpegImageBase64, options),
   };
+}
+
+function uploadCustomCoverImage(
+  request: Requester,
+  playlistId: string,
+  jpegImageBase64: string,
+  options?: CustomPlaylistCoverImageOptions,
+) {
+  if (options?.validatePayloadSize !== false) {
+    assertCustomCoverImageSize(jpegImageBase64);
+  }
+
+  return request<void>({
+    method: "PUT",
+    path: `/playlists/${encodePath(playlistId)}/images`,
+    rawBody: jpegImageBase64,
+    headers: { ...headerRecord(options?.headers), "content-type": "image/jpeg" },
+    signal: options?.signal,
+  });
+}
+
+function assertCustomCoverImageSize(jpegImageBase64: string): void {
+  const byteLength = new TextEncoder().encode(jpegImageBase64).byteLength;
+
+  if (byteLength > MAX_CUSTOM_COVER_IMAGE_BYTES) {
+    throw new RangeError(
+      `Spotify custom playlist cover image payload must be 256 KB or smaller; got ${byteLength} bytes.`,
+    );
+  }
 }

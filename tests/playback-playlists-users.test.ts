@@ -163,16 +163,54 @@ describe("playlist endpoints", () => {
       body: { tracks: [{ uri: "spotify:track:one" }] },
     });
 
-    await spotify.playlists.addCustomCoverImage("playlist", "base64-image", {
+    await spotify.playlists.getCoverImage("playlist");
+    expectRequest(fetch, {
+      method: "GET",
+      path: "https://api.spotify.com/v1/playlists/playlist/images",
+    });
+
+    await spotify.playlists.uploadCustomCoverImage("playlist", "base64-image", {
       headers: { "x-extra": "yes" },
     });
-    const [, init] = lastCall(fetch);
     expectRequest(fetch, {
       method: "PUT",
       path: "https://api.spotify.com/v1/playlists/playlist/images",
       headers: { "content-type": "image/jpeg", "x-extra": "yes" },
     });
+    let [, init] = lastCall(fetch);
     expect(init?.body).toBe("base64-image");
+
+    await spotify.playlists.addCustomCoverImage("playlist", "legacy-base64-image");
+    expectRequest(fetch, {
+      method: "PUT",
+      path: "https://api.spotify.com/v1/playlists/playlist/images",
+      headers: { "content-type": "image/jpeg" },
+    });
+    [, init] = lastCall(fetch);
+    expect(init?.body).toBe("legacy-base64-image");
+  });
+
+  it("validates Spotify's custom playlist cover image payload size", async () => {
+    const fetch = mockJsonFetch();
+    const spotify = createSpotifyClient({ accessToken: "token", fetch });
+    const atLimitImage = "a".repeat(256 * 1024);
+    const tooLargeImage = "a".repeat(256 * 1024 + 1);
+
+    await spotify.playlists.uploadCustomCoverImage("playlist", atLimitImage);
+    let [, init] = lastCall(fetch);
+    expect(init?.body).toBe(atLimitImage);
+
+    expect(() =>
+      spotify.playlists.uploadCustomCoverImage("playlist", tooLargeImage),
+    ).toThrow(/256 KB or smaller/);
+
+    await spotify.playlists.uploadCustomCoverImage(
+      "playlist",
+      tooLargeImage,
+      { validatePayloadSize: false },
+    );
+    [, init] = lastCall(fetch);
+    expect(init?.body).toBe(tooLargeImage);
   });
 
   it("covers user and browse playlist helpers", async () => {
