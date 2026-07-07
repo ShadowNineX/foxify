@@ -261,7 +261,36 @@ Dry-run the package contents:
 bun run pack:dry
 ```
 
-Publish publicly:
+### Trusted Publishing
+
+This repo includes a tokenless npm Trusted Publisher workflow at `.github/workflows/npm-publish.yml`.
+
+Configure the package on npm:
+
+- Publisher: GitHub Actions
+- Organization or user: `ShadowNineX`
+- Repository: `foxify`
+- Workflow filename: `npm-publish.yml`
+- Environment name: `npm`
+- Allowed actions: `npm publish`
+
+The workflow runs when a version tag like `v0.1.1` is pushed. It installs with Bun, then lets `npm publish` run the package lifecycle scripts:
+
+- `prepublishOnly`: `bun run typecheck && bun run test`
+- `prepack`: `bun run build`
+
+No `NPM_TOKEN` secret is required. npm exchanges the GitHub Actions OIDC token for a short-lived publish credential and generates provenance automatically for public GitHub packages.
+
+Release flow:
+
+```bash
+npm version patch
+git push --follow-tags
+```
+
+Pushing the tag starts the workflow and publishes the package to npm.
+
+Manual fallback:
 
 ```bash
 npm publish --access public
