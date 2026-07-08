@@ -104,6 +104,42 @@ describe("playlist endpoints", () => {
       search: { market: "US", fields: "items", additional_types: "episode" },
     });
 
+    const playlistItemsFetch = mockJsonFetch({
+      href: "https://api.spotify.com/v1/playlists/playlist/items",
+      items: [
+        {
+          added_at: "2026-07-08T00:00:00Z",
+          is_local: false,
+          item: {
+            id: "track",
+            name: "Track",
+            type: "track",
+            uri: "spotify:track:track",
+          },
+        },
+      ],
+      limit: 1,
+      next: null,
+      offset: 0,
+      previous: null,
+      total: 1,
+    });
+    const playlistItemsClient = createSpotifyClient({
+      accessToken: "token",
+      fetch: playlistItemsFetch,
+    });
+
+    const playlistItems = await playlistItemsClient.playlists.getItems(
+      "playlist",
+      { limit: 1 },
+    );
+    expect(playlistItems.items[0]?.item?.uri).toBe("spotify:track:track");
+    expectRequest(playlistItemsFetch, {
+      method: "GET",
+      path: "https://api.spotify.com/v1/playlists/playlist/items",
+      search: { limit: "1" },
+    });
+
     await spotify.playlists.changeDetails("playlist", {
       name: "New name",
       public: false,
