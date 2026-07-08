@@ -16,6 +16,7 @@ import type {
   Playlist,
   PlaylistCoverImage,
   PlaylistDetails,
+  PlaylistItem,
   PlaylistItemsBody,
   RemovePlaylistItemsBody,
   RequestOptions,
@@ -50,7 +51,7 @@ export function createPlaylistsApi(request: Requester) {
         ...requestOptions(options),
       }),
     getItems: (playlistId: string, options?: PlaylistItemsOptions) =>
-      request<Paging<{ track: Track | Episode }>>({
+      request<Paging<PlaylistItem>>({
         method: "GET",
         path: itemsPath(playlistId),
         query: pickQuery(options, ["market", "fields", "limit", "offset", "additional_types"]),

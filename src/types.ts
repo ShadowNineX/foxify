@@ -139,6 +139,8 @@ export interface UserProfile extends SpotifyObject {
   type: "user";
 }
 
+export type PlayableItem = Track | Episode;
+
 export interface Device {
   id: string | null;
   is_active: boolean;
@@ -158,14 +160,14 @@ export interface PlaybackState {
   timestamp: number;
   progress_ms: number | null;
   is_playing: boolean;
-  item: Track | Episode | null;
+  item: PlayableItem | null;
   currently_playing_type: string;
   [key: string]: unknown;
 }
 
 export interface Queue {
-  currently_playing: Track | Episode | null;
-  queue: Array<Track | Episode>;
+  currently_playing: PlayableItem | null;
+  queue: PlayableItem[];
   [key: string]: unknown;
 }
 
@@ -231,6 +233,16 @@ export interface CustomPlaylistCoverImageOptions extends RequestOptions {
    * sending the request. Enabled by default.
    */
   validatePayloadSize?: boolean;
+}
+
+export interface PlaylistItem {
+  added_at?: string;
+  added_by?: UserProfile;
+  is_local?: boolean;
+  item: PlayableItem | null;
+  primary_color?: string | null;
+  video_thumbnail?: unknown;
+  [key: string]: unknown;
 }
 
 export interface PlaylistItemsBody {
