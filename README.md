@@ -1,85 +1,169 @@
 # @shadownine/foxify
 
-A modern TypeScript client for the Spotify Web API.
+[![npm version](https://img.shields.io/npm/v/@shadownine/foxify)](https://www.npmjs.com/package/@shadownine/foxify)
+[![license](https://img.shields.io/npm/l/@shadownine/foxify)](./LICENSE)
 
-`@shadownine/foxify` wraps Spotify's REST API in a grouped, autocomplete-friendly client:
+A typed, ESM-first client for the [Spotify Web API](https://developer.spotify.com/documentation/web-api). Foxify groups endpoints by resource, includes OAuth helpers, and uses the standard Fetch API, so it works with Bun, Node.js 18.17+, browsers, and edge runtimes.
 
-```ts
-import { createSpotifyClient } from "@shadownine/foxify";
+> Foxify is an independent project and is not affiliated with or endorsed by Spotify.
 
-const spotify = createSpotifyClient({
-  accessToken: process.env.SPOTIFY_ACCESS_TOKEN!,
-});
+## Contents
 
-const album = await spotify.albums.get("4aawyAB9vmqN3uQ7FjRGTy", {
-  market: "US",
-});
-
-console.log(album.name);
-```
-
-The library is ESM-first, typed, fetch-based, and works in runtimes with Web Fetch APIs such as Bun, modern Node, browsers, and edge runtimes.
+- [Install](#install)
+- [Quick start](#quick-start)
+- [Authentication](#authentication)
+- [Client configuration](#client-configuration)
+- [API overview](#api-overview)
+- [Errors and rate limits](#errors-and-rate-limits)
+- [Examples](#examples)
+- [Development](#development)
+- [Publishing](#publishing)
 
 ## Install
-
-```bash
-bun add @shadownine/foxify
-```
 
 ```bash
 npm install @shadownine/foxify
 ```
 
-## Quick Start
+```bash
+bun add @shadownine/foxify
+```
 
-Create a client with an access token:
+Foxify is published as an ES module. TypeScript declarations are included in the package.
+
+## Quick start
+
+Create a client with a Spotify access token and call a resource group:
 
 ```ts
 import { createSpotifyClient } from "@shadownine/foxify";
 
 const spotify = createSpotifyClient({
-  accessToken: "spotify-access-token",
+  accessToken: process.env.SPOTIFY_ACCESS_TOKEN,
 });
 
 const profile = await spotify.users.getCurrentProfile();
 const playlists = await spotify.playlists.getCurrentUserPlaylists({ limit: 10 });
+
+console.log(`${profile.display_name} has ${playlists.total} playlists`);
 ```
 
-Or provide a token getter if your app refreshes tokens:
+Spotify access tokens are short-lived. For long-running applications, pass a token getter so each request can use a current token:
 
 ```ts
 const spotify = createSpotifyClient({
   async getAccessToken() {
-    return await loadFreshSpotifyAccessToken();
+    const tokens = await loadOrRefreshSpotifyTokens();
+    return tokens.access_token;
   },
 });
 ```
 
-You can also inject `fetch`, change the base URL for tests, or enable simple 429 retry behavior:
+The client does not persist tokens. Store and refresh them in your application.
+
+## Authentication
+
+Create an app in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), register every redirect URI exactly, and choose the flow that matches your application.
+
+### Authorization Code with PKCE
+
+Use PKCE for applications that cannot safely hold a client secret, including browser and desktop applications.
+
+```ts
+import {
+  createAuthorizeUrl,
+  createPkceChallenge,
+  exchangeAuthorizationCode,
+} from "@shadownine/foxify";
+
+const redirectUri = "http://127.0.0.1:5173/callback";
+const state = crypto.randomUUID();
+const pkce = await createPkceChallenge();
+
+const authorizationUrl = createAuthorizeUrl({
+  clientId: process.env.SPOTIFY_CLIENT_ID!,
+  redirectUri,
+  scopes: ["user-read-email", "playlist-read-private"],
+  state,
+  codeChallenge: pkce.codeChallenge,
+  codeChallengeMethod: pkce.codeChallengeMethod,
+});
+
+// Redirect the user to authorizationUrl. In the callback, verify `state`
+// before exchanging the returned authorization code.
+const tokens = await exchangeAuthorizationCode({
+  clientId: process.env.SPOTIFY_CLIENT_ID!,
+  redirectUri,
+  code: callbackCode,
+  codeVerifier: pkce.codeVerifier,
+});
+```
+
+Always verify the callback `state` value before exchanging a code. Keep access and refresh tokens out of source control and client-visible logs.
+
+### Refresh token
+
+```ts
+import { refreshAccessToken } from "@shadownine/foxify";
+
+const tokens = await refreshAccessToken({
+  clientId: process.env.SPOTIFY_CLIENT_ID!,
+  clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
+  refreshToken: storedRefreshToken,
+});
+```
+
+A refreshed response may not include a new refresh token. Preserve the existing one unless Spotify returns a replacement.
+
+### Client credentials
+
+Use client credentials for server-side access to public catalog data. This flow does not represent a Spotify user and cannot call user-specific endpoints.
+
+```ts
+import {
+  clientCredentialsToken,
+  createSpotifyClient,
+} from "@shadownine/foxify";
+
+const tokens = await clientCredentialsToken({
+  clientId: process.env.SPOTIFY_CLIENT_ID!,
+  clientSecret: process.env.SPOTIFY_CLIENT_SECRET!,
+});
+
+const spotify = createSpotifyClient({ accessToken: tokens.access_token });
+const results = await spotify.search.items("Daft Punk", ["artist", "track"], {
+  market: "US",
+  limit: 10,
+});
+```
+
+Never ship a Spotify client secret to a browser or other public client.
+
+## Client configuration
 
 ```ts
 const spotify = createSpotifyClient({
-  accessToken: "token",
+  accessToken: "spotify-access-token",
+  getAccessToken: async () => "fresh-spotify-access-token",
   fetch: globalThis.fetch,
   baseUrl: "https://api.spotify.com/v1",
   autoRetry: { retries: 1 },
 });
 ```
 
-## API Shape
+| Option | Type | Purpose |
+| --- | --- | --- |
+| `accessToken` | `string` | Static bearer token used for Web API requests. |
+| `getAccessToken` | `() => string \| Promise<string>` | Called before each request. Takes precedence over `accessToken`. |
+| `fetch` | Fetch-compatible function | Replaces the runtime's global `fetch`, useful for tests and custom networking. |
+| `baseUrl` | `string` | Overrides `https://api.spotify.com/v1`, primarily for tests or proxies. |
+| `autoRetry` | `boolean \| { retries: number }` | Retries HTTP 429 responses that include a valid `Retry-After` header. |
 
-Endpoints are grouped by Spotify resource:
+If neither token option produces a value, authenticated requests throw before making a network request.
 
-```ts
-spotify.albums.get(id);
-spotify.artists.getTopTracks(id, { market: "US" });
-spotify.playlists.addItems(playlistId, ["spotify:track:..."]);
-spotify.player.pause({ device_id: "device-id" });
-spotify.search.items("Daft Punk", ["artist", "track"]);
-spotify.users.follow("artist", ["artist-id"]);
-```
+## API overview
 
-Available groups:
+Endpoints are grouped by Spotify resource and are fully typed:
 
 ```ts
 spotify.albums
@@ -99,141 +183,53 @@ spotify.tracks
 spotify.users
 ```
 
-There is also a raw request escape hatch:
+Representative calls:
 
 ```ts
-const result = await spotify.request("GET", "/me/player", {
+const album = await spotify.albums.get("album-id", { market: "US" });
+const topTracks = await spotify.artists.getTopTracks("artist-id", { market: "US" });
+const saved = await spotify.tracks.checkSaved(["track-id"]);
+
+await spotify.playlists.addItems("playlist-id", ["spotify:track:track-id"]);
+await spotify.player.startResumePlayback({ uris: ["spotify:track:track-id"] });
+await spotify.users.follow("artist", ["artist-id"]);
+```
+
+Methods accept an optional final options object for supported query parameters, request headers, and an `AbortSignal`. Your token must include the scopes required by the corresponding Spotify endpoint.
+
+### Raw requests
+
+Use `request` when Spotify adds an endpoint before Foxify exposes a typed wrapper:
+
+```ts
+interface PlaybackState {
+  is_playing: boolean;
+}
+
+const playback = await spotify.request<PlaybackState>("GET", "/me/player", {
   query: { market: "US" },
+  signal: AbortSignal.timeout(5_000),
 });
 ```
 
-## OAuth Helpers
+Paths are relative to the configured API base URL. Query arrays are serialized as comma-separated values. Successful `204 No Content` responses resolve to `undefined`.
 
-`@shadownine/foxify` includes helpers for common Spotify OAuth flows.
-
-### Authorization URL + PKCE
+### Playlist cover images
 
 ```ts
-import {
-  createAuthorizeUrl,
-  createPkceChallenge,
-  exchangeAuthorizationCode,
-} from "@shadownine/foxify";
-
-const pkce = await createPkceChallenge();
-
-const authorizationUrl = createAuthorizeUrl({
-  clientId: "spotify-client-id",
-  redirectUri: "https://your-app.test/callback",
-  scopes: ["user-read-email", "playlist-read-private"],
-  state: "csrf-state",
-  codeChallenge: pkce.codeChallenge,
-});
-
-// Redirect the user to authorizationUrl, then exchange the callback code:
-const tokens = await exchangeAuthorizationCode({
-  clientId: "spotify-client-id",
-  code: "callback-code",
-  codeVerifier: pkce.codeVerifier,
-  redirectUri: "https://your-app.test/callback",
-});
-```
-
-### Refresh Token
-
-```ts
-import { refreshAccessToken } from "@shadownine/foxify";
-
-const tokens = await refreshAccessToken({
-  clientId: "spotify-client-id",
-  clientSecret: "spotify-client-secret",
-  refreshToken: "refresh-token",
-});
-```
-
-### Client Credentials
-
-```ts
-import { clientCredentialsToken } from "@shadownine/foxify";
-
-const tokens = await clientCredentialsToken({
-  clientId: "spotify-client-id",
-  clientSecret: "spotify-client-secret",
-});
-```
-
-## Examples
-
-Runnable examples live in [`examples/`](./examples). After installing dependencies,
-set the Spotify environment variables needed by the example you want, then run:
-
-```bash
-bun run example:client-credentials-search
-bun run example:oauth-login
-bun run example:user-profile-playlists
-```
-
-### Search
-
-```ts
-const results = await spotify.search.items("lofi", ["playlist", "track"], {
-  market: "US",
-  limit: 10,
-});
-```
-
-### Save Tracks
-
-```ts
-await spotify.tracks.save(["spotify-track-id"]);
-
-const saved = await spotify.tracks.checkSaved(["spotify-track-id"]);
-```
-
-### Create a Playlist
-
-```ts
-const playlist = await spotify.playlists.create({
-  name: "Weekend Flight Deck",
-  description: "Fresh tracks for late-night building.",
-  // Hides from profile/search. Spotify Web API cannot make links private.
-  public: false,
-});
-
-await spotify.playlists.addItems(playlist.id, [
-  "spotify:track:...",
-]);
-```
-
-### Playlist Cover Images
-
-```ts
-const coverImages = await spotify.playlists.getCoverImage(playlist.id);
+const images = await spotify.playlists.getCoverImage("playlist-id");
 
 await spotify.playlists.uploadCustomCoverImage(
-  playlist.id,
+  "playlist-id",
   jpegImageBase64,
 );
 ```
 
-Spotify expects raw base64-encoded JPEG image data, not JSON and not a data URL.
-The request body must be 256 KB or smaller. The access token needs Spotify's
-`ugc-image-upload` scope.
+The upload value must be raw base64-encoded JPEG data, not a data URL. Spotify limits the request body to 256 KB and requires the `ugc-image-upload` scope.
 
-### Playback
+## Errors and rate limits
 
-```ts
-await spotify.player.startResumePlayback({
-  uris: ["spotify:track:..."],
-});
-
-await spotify.player.setVolume(65);
-await spotify.player.pause();
-```
-
-## Errors
-
-Spotify Web API errors throw `SpotifyApiError`:
+Web API failures throw `SpotifyApiError`:
 
 ```ts
 import { SpotifyApiError } from "@shadownine/foxify";
@@ -242,68 +238,112 @@ try {
   await spotify.tracks.get("missing-track");
 } catch (error) {
   if (error instanceof SpotifyApiError) {
-    console.error(error.status);
-    console.error(error.message);
-    console.error(error.retryAfter);
+    console.error(error.status);      // HTTP status
+    console.error(error.message);     // Spotify error message when available
+    console.error(error.retryAfter);  // Retry-After seconds when provided
+    console.error(error.body);        // Parsed response body
   }
 }
 ```
 
-OAuth helper failures throw `SpotifyOAuthError`:
+OAuth token endpoint failures throw `SpotifyOAuthError` and preserve the original error in `cause`.
 
-```ts
-import { SpotifyOAuthError } from "@shadownine/foxify";
+Automatic retry is disabled by default. Set `autoRetry: true` for one retry, or `autoRetry: { retries: n }` for an explicit limit. Foxify only retries `429 Too Many Requests` responses with a valid non-negative `Retry-After` header; other errors are returned immediately.
 
-try {
-  await refreshAccessToken({ clientId, refreshToken });
-} catch (error) {
-  if (error instanceof SpotifyOAuthError) {
-    console.error(error.message);
-  }
-}
+## Examples
+
+Runnable TypeScript examples live in [`examples/`](./examples):
+
+| Command | What it demonstrates |
+| --- | --- |
+| `bun run example:client-credentials-search` | App-only authentication and catalog search. |
+| `bun run example:oauth-login` | Local Authorization Code with PKCE login. |
+| `bun run example:user-profile-playlists` | Token refresh, current profile, and playlist paging. |
+
+Install dependencies, then create the ignored `examples/.env` file with only the values needed by your chosen example:
+
+```dotenv
+SPOTIFY_CLIENT_ID=your-client-id
+SPOTIFY_CLIENT_SECRET=your-client-secret
+SPOTIFY_REDIRECT_URI=http://127.0.0.1:5173/callback
+SPOTIFY_SCOPES=user-read-email playlist-read-private
+SPOTIFY_QUERY=Daft Punk
+SPOTIFY_MARKET=US
 ```
+
+Add the same redirect URI to your Spotify app settings. The OAuth login example writes access, expiry, and refresh-token values back to `examples/.env`; never commit that file. See [`examples/README.md`](./examples/README.md) for the per-example requirements.
 
 ## Development
 
+### Prerequisites
+
+- [Bun](https://bun.sh/) 1.3.14 or a compatible release
+- Node.js 18.17+ for consuming the built package
+- A Spotify developer app for live examples
+
+### Set up the repository
+
 ```bash
-bun install
+git clone https://github.com/ShadowNineX/foxify.git
+cd foxify
+bun install --frozen-lockfile
+```
+
+Run the local quality checks:
+
+```bash
 bun run typecheck
 bun run test
 bun run build
 ```
 
-Build output is generated with `tsdown` into `dist/`.
+Use `bun run test:watch` while developing. Build artifacts are generated in `dist/` by `tsdown` and should not be edited directly.
+
+### Project layout
+
+```text
+src/client.ts       Public SpotifyClient and client factory
+src/core.ts         HTTP transport, authentication, errors, and rate limits
+src/oauth.ts        OAuth URL, PKCE, token exchange, and refresh helpers
+src/endpoints/      Resource-specific endpoint groups
+src/types.ts        Public Spotify response and option types
+tests/              Vitest request/response contract tests
+examples/           Runnable authentication and API examples
+```
+
+When adding or changing an endpoint:
+
+1. Match Spotify's HTTP method, path, query, body, and response shape in the relevant `src/endpoints/` module.
+2. Add or update public types in `src/types.ts` or the matching internal option types.
+3. Add a deterministic Vitest contract test that asserts the observable request and response behavior.
+4. Run type checking, tests, and the build before opening a pull request.
 
 ## Publishing
 
-The plain `foxify` npm name is already taken, so this package is configured as `@shadownine/foxify`.
+The package is published as `@shadownine/foxify` because the unscoped `foxify` name is already in use.
 
-Before publishing, make sure the npm scope is yours. If you use a different npm username or org, update `package.json` and the import examples in this README.
-
-Dry-run the package contents:
+Before creating a release:
 
 ```bash
+bun run typecheck
+bun run test
+bun run build
 bun run pack:dry
 ```
 
-Publish from a version tag:
+Create and push a version tag:
 
 ```bash
 npm version patch
 git push --follow-tags
 ```
 
-Pushing the tag starts the workflow and publishes the package to npm.
-
-Manual fallback:
+Tags matching `v*` trigger [the npm publishing workflow](./.github/workflows/npm-publish.yml). The manual fallback is:
 
 ```bash
 npm publish --access public
 ```
 
-## Notes
+## License
 
-- Spotify access tokens are required for Web API requests.
-- Query arrays are serialized as Spotify-style comma lists.
-- Empty `204` responses resolve to `undefined`.
-- Deprecated playlist item endpoints are still available with `Deprecated` suffixes for compatibility.
+[MIT](./LICENSE)
