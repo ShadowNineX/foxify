@@ -254,6 +254,11 @@ export interface PlaylistItemsBody {
 }
 
 export interface RemovePlaylistItemsBody {
+  items: Array<{ uri: string }>;
+  snapshot_id?: string;
+}
+
+export interface RemovePlaylistTracksBody {
   tracks: Array<{ uri: string; positions?: readonly number[] }>;
   snapshot_id?: string;
 }

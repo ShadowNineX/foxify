@@ -19,6 +19,7 @@ import type {
   PlaylistItem,
   PlaylistItemsBody,
   RemovePlaylistItemsBody,
+  RemovePlaylistTracksBody,
   RequestOptions,
   Track,
 } from "../types";
@@ -115,7 +116,7 @@ export function createPlaylistsApi(request: Requester) {
     /** @deprecated Use removeItems. */
     removeItemsDeprecated: (
       playlistId: string,
-      body: RemovePlaylistItemsBody,
+      body: RemovePlaylistTracksBody,
       options?: RequestOptions,
     ) =>
       request<{ snapshot_id: string }>({

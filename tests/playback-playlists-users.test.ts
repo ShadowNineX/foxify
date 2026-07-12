@@ -170,12 +170,12 @@ describe("playlist endpoints", () => {
     });
 
     await spotify.playlists.removeItems("playlist", {
-      tracks: [{ uri: "spotify:track:one" }],
+      items: [{ uri: "spotify:track:one" }],
     });
     expectRequest(fetch, {
       method: "DELETE",
       path: "https://api.spotify.com/v1/playlists/playlist/items",
-      body: { tracks: [{ uri: "spotify:track:one" }] },
+      body: { items: [{ uri: "spotify:track:one" }] },
     });
   });
 

@@ -1,6 +1,6 @@
 {
   "name": "@shadownine/foxify",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "A modern TypeScript client for the Spotify Web API.",
   "type": "module",
   "license": "MIT",
